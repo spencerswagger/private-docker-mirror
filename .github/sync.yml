@@ -1,0 +1,21 @@
+name: Sync
+
+on:
+  schedule:
+    - cron: "0 12,18 * * *"
+
+  workflow_dispatch:
+
+jobs:
+  sync-images:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up skopeo
+        run: |
+          wget https://github.com/lework/skopeo-binary/releases/download/v1.13.3/skopeo-linux-amd64 -O /usr/local/bin/skopeo && chmod +x /usr/local/bin/skopeo
+          skopeo --version
+      - name: Sync Images
+        run: |
+          ./sync.sh
