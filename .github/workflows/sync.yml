@@ -16,6 +16,9 @@ jobs:
         run: |
           wget https://github.com/lework/skopeo-binary/releases/download/v1.13.3/skopeo-linux-amd64 -O /usr/local/bin/skopeo && chmod +x /usr/local/bin/skopeo
           skopeo --version
+      - name: Chmod
+        run: |
+          chmod +x ./sync.sh
       - name: Sync Images
         run: |
           ./sync.sh
