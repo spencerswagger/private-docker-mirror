@@ -1,0 +1,36 @@
+name: Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: 'Manually synchronize a image'
+        required: true
+        type: string
+
+jobs:
+  sync-images:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up skopeo
+        run: |
+          wget https://github.com/lework/skopeo-binary/releases/download/v1.13.3/skopeo-linux-amd64 -O /usr/local/bin/skopeo && chmod +x /usr/local/bin/skopeo
+          skopeo --version
+      - name: Login to Docker Hub using Skopeo
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          echo "${DOCKER_PASSWORD}" | skopeo login --username ${DOCKER_USERNAME} --password-stdin registry.cn-hangzhou.aliyuncs.com
+      - name: Override image.txt
+        run: |
+          echo ${{ github.event.inputs.image }} > image.txt
+      - name: Chmod
+        run: |
+          chmod +x ./sync.sh
+          chmod +x ./diff-image.sh
+      - name: Sync Images
+        run: |
+          ./sync.sh
