@@ -16,6 +16,12 @@ jobs:
         run: |
           wget https://github.com/lework/skopeo-binary/releases/download/v1.13.3/skopeo-linux-amd64 -O /usr/local/bin/skopeo && chmod +x /usr/local/bin/skopeo
           skopeo --version
+      - name: Login to Docker Hub using Skopeo
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          echo "${DOCKER_PASSWORD}" | skopeo login --username ${DOCKER_USERNAME} --password-stdin registry.cn-hangzhou.aliyuncs.com
       - name: Chmod
         run: |
           chmod +x ./sync.sh
