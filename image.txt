@@ -9,3 +9,5 @@ docker.io/rancher/hardened-kubernetes
 docker.io/rancher/mirrored-pause
 docker.io/rancher/hardened-calico
 docker.io/rancher/hardened-flannel
+docker.io/rancher/hardened-k8s-metrics-server
+docker.io/rancher/hardened-cluster-autoscaler
