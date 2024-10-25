@@ -1,2 +1,11 @@
 docker.io/rancher/hardened-coredns
-rancher-mirrored-sig-storage-snapshot-controller
+docker.io/rancher/mirrored-sig-storage-snapshot-controller
+docker.io/rancher/nginx-ingress-controller
+docker.io/rancher/mirrored-sig-storage-snapshot-validation-webhook
+docker.io/rancher/rke2-runtime
+docker.io/rancher/rke2-cloud-provider
+docker.io/rancher/hardened-etcd
+docker.io/rancher/hardened-kubernetes
+docker.io/rancher/mirrored-pause
+docker.io/rancher/hardened-calico
+docker.io/rancher/hardened-flannel
