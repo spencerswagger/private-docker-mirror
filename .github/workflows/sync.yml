@@ -19,6 +19,7 @@ jobs:
       - name: Chmod
         run: |
           chmod +x ./sync.sh
+          chmod +x ./diff-image.sh
       - name: Sync Images
         run: |
           ./sync.sh
