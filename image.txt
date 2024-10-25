@@ -1,1 +1,2 @@
 docker.io/rancher/hardened-coredns
+rancher-mirrored-sig-storage-snapshot-controller

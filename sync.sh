@@ -1,5 +1,5 @@
 #!/bin/bash
-
+cat image.txt
 while read -r line; do
     echo "Start sync image $line" >&2
     # 使用正则表达式提取两部分内容
