@@ -25,3 +25,6 @@ docker.io/longhornio/csi-node-driver-registrar
 docker.io/longhornio/csi-resizer
 docker.io/longhornio/csi-snapshotter
 docker.io/longhornio/livenessprobe
+docker.io/apecloud/spilo
+docker.io/apecloud/pgbouncer
+docker.io/apecloud/redis-stack-server
