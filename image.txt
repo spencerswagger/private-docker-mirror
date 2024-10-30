@@ -31,3 +31,4 @@ docker.io/apecloud/redis-stack-server
 docker.io/apecloud/kafka
 docker.io/apecloud/jmx-exporter
 docker.io/apecloud/kafka-exporter
+docker.io/library/openjdk
