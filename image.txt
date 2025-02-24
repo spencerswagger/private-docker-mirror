@@ -34,3 +34,4 @@ docker.io/apecloud/kafka-exporter
 docker.io/library/openjdk
 docker.io/library/redis
 docker.io/caronc/apprise
+docker.io/library/node
