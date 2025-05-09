@@ -35,3 +35,4 @@ docker.io/library/openjdk
 docker.io/library/redis
 docker.io/caronc/apprise
 docker.io/library/node
+docker.io/library/pgbouncer/pgbouncer
