@@ -36,3 +36,4 @@ docker.io/library/redis
 docker.io/caronc/apprise
 docker.io/library/node
 docker.io/library/pgbouncer/pgbouncer
+docker.io/library/alpine
