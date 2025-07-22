@@ -202,7 +202,7 @@ function diff-image-with-tag() {
         fi
          
         if [[ "${QUICKLY_PATTERN}" == "" || ("${QUICKLY_PATTERN}" != "" && "${tag1}" =~ ${QUICKLY_PATTERN}) ]]; then
-            echo "${SELF}: SYNCHRONIZED: ${image1} and ${image2} are in synchronized" >&2
+            # echo "${SELF}: SYNCHRONIZED: ${image1} and ${image2} are in synchronized" >&2
             return 0
         fi
     fi
@@ -228,7 +228,7 @@ function diff-image-with-tag() {
         fi
         return 1
     fi
-    echo "${SELF}: SYNCHRONIZED: ${image1} and ${image2} are in synchronized" >&2
+    # echo "${SELF}: SYNCHRONIZED: ${image1} and ${image2} are in synchronized" >&2
 }
 
 function diff-image() {
