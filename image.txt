@@ -1,3 +1,6 @@
+docker.io/rancher/mirrored-coredns-coredns
+docker.io/rancher/local-path-provisioner
+docker.io/rancher/mirrored-metrics-server
 docker.io/rancher/hardened-coredns
 docker.io/rancher/mirrored-sig-storage-snapshot-controller
 docker.io/rancher/nginx-ingress-controller
