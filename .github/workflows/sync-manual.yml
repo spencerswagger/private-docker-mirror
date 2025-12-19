@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Set up skopeo
         run: |
-          wget https://github.com/lework/skopeo-binary/releases/download/v1.13.3/skopeo-linux-amd64 -O /usr/local/bin/skopeo && chmod +x /usr/local/bin/skopeo
+          wget https://github.com/lework/skopeo-binary/releases/download/v1.21.0/skopeo-linux-amd64 -O /usr/local/bin/skopeo && chmod +x /usr/local/bin/skopeo
           skopeo --version
       - name: Login to Docker Hub using Skopeo
         env:
