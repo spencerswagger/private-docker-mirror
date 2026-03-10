@@ -4,4 +4,5 @@ docker.io/library/node
 docker.io/library/pgbouncer/pgbouncer
 docker.io/library/alpine
 docker.io/library/nats
+docker.io/library/golang
 docker.io/openlistteam/openlist:latest
