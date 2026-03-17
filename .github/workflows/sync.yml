@@ -5,6 +5,12 @@ on:
     - cron: "0 12,18 * * *"
 
   workflow_dispatch:
+    inputs:
+      max_parallel:
+        description: 'Maximum number of parallel sync tasks (default: 3)'
+        required: false
+        default: '10'
+        type: string
 
 jobs:
   sync-images:
@@ -27,5 +33,8 @@ jobs:
           chmod +x ./sync.sh
           chmod +x ./diff-image.sh
       - name: Sync Images
+        env:
+          MAX_PARALLEL: ${{ github.event.inputs.max_parallel || 3 }}
         run: |
+          echo "开始并行同步镜像，最大并发数：${MAX_PARALLEL}"
           ./sync.sh
