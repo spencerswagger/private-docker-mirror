@@ -1,8 +1,2 @@
-docker.io/library/openjdk
-docker.io/library/redis
-docker.io/library/node
-docker.io/library/pgbouncer/pgbouncer
-docker.io/library/alpine
-docker.io/library/nats
-docker.io/library/golang
-docker.io/openlistteam/openlist:latest
+docker.io/library/*
+arm64v8/*
