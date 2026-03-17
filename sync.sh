@@ -43,6 +43,7 @@ normalize_image() {
 }
 
 # 通配符扩展函数
+# 支持分页获取所有镜像
 expand_wildcard() {
     local pattern="$1"
     
@@ -66,50 +67,88 @@ expand_wildcard() {
         
         echo "解析结果：namespace=${namespace}, search_term=${search_term}" >&2
         
-        # 对于全量通配符（如 */* 或 namespace/*），直接返回原始模式，避免请求过多数据
-        if [[ "$search_term" == "" || "$search_term" == "*" ]]; then
-            echo "检测到全量通配符，返回原始模式：${pattern}" >&2
-            echo "$pattern"
+        # 使用 Docker Hub API 搜索匹配的镜像（支持分页）
+        local all_results=""
+        local page=1
+        local page_size=100  # Docker Hub API 最大支持 100
+        
+        echo "开始分页获取镜像..." >&2
+        
+        while true; do
+            local search_url=""
+            if [[ -n "$namespace" ]]; then
+                search_url="https://hub.docker.com/v2/repositories/${namespace}/?page_size=${page_size}&page=${page}"
+            else
+                search_url="https://hub.docker.com/v2/repositories/library/?page_size=${page_size}&page=${page}"
+            fi
+            
+            echo "获取第 ${page} 页：${search_url}" >&2
+            
+            # 获取并过滤匹配的镜像
+            local response=""
+            if command -v curl &> /dev/null; then
+                response=$(curl -s --connect-timeout 10 --max-time 60 "$search_url")
+            else
+                echo "错误：未找到 curl 命令" >&2
+                return
+            fi
+            
+            if [[ -z "$response" ]]; then
+                echo "警告：Docker Hub API 返回空响应，停止分页" >&2
+                break
+            fi
+            
+            local page_results=""
+            if command -v jq &> /dev/null; then
+                page_results=$(echo "$response" | jq -r '.results[].name // empty' 2>/dev/null)
+                local next_page=$(echo "$response" | jq -r '.next // empty' 2>/dev/null)
+            else
+                echo "警告：未找到 jq 命令，使用 grep 解析" >&2
+                page_results=$(echo "$response" | grep -oP '"name"\s*:\s*"\K[^"]+' 2>/dev/null || :)
+                local next_page=""
+            fi
+            
+            if [[ -z "$page_results" ]]; then
+                echo "第 ${page} 页无结果，停止分页" >&2
+                break
+            fi
+            
+            all_results="${all_results}${page_results}"$'\n'
+            local page_count=$(echo "$page_results" | grep -c .)
+            echo "第 ${page} 页获取到 ${page_count} 个镜像" >&2
+            
+            # 检查是否还有下一页
+            if [[ -z "$next_page" || "$next_page" == "null" ]]; then
+                echo "没有更多页面，停止分页" >&2
+                break
+            fi
+            
+            page=$((page + 1))
+        done
+        
+        if [[ -z "$all_results" ]]; then
+            echo "警告：未找到匹配的镜像" >&2
             return
         fi
         
-        # 使用 Docker Hub API 搜索匹配的镜像
-        local search_url=""
-        if [[ -n "$namespace" ]]; then
-            search_url="https://hub.docker.com/v2/repositories/${namespace}/?page_size=100"
-        else
-            search_url="https://hub.docker.com/v2/repositories/library/?page_size=100"
-        fi
-        
-        echo "请求 Docker Hub API: ${search_url}" >&2
-        
-        # 获取并过滤匹配的镜像
-        local response=""
-        if command -v curl &> /dev/null; then
-            response=$(curl -s --connect-timeout 10 --max-time 30 "$search_url")
-        else
-            echo "错误：未找到 curl 命令" >&2
-            echo "$pattern"
-            return
-        fi
-        
-        if [[ -z "$response" ]]; then
-            echo "警告：Docker Hub API 返回空响应，使用原始模式" >&2
-            echo "$pattern"
-            return
-        fi
-        
-        local results=""
-        if command -v jq &> /dev/null; then
-            results=$(echo "$response" | jq -r '.results[].name // empty' 2>/dev/null)
-        else
-            echo "警告：未找到 jq 命令，尝试使用 grep 解析" >&2
-            results=$(echo "$response" | grep -oP '"name"\s*:\s*"\K[^"]+' 2>/dev/null || :)
-        fi
-        
-        if [[ -z "$results" ]]; then
-            echo "警告：未解析到镜像名称，使用原始模式" >&2
-            echo "$pattern"
+        # 如果 search_term 为空或为 *，则返回所有获取到的镜像
+        if [[ -z "$search_term" || "$search_term" == "*" ]]; then
+            echo "全量通配符，返回所有镜像" >&2
+            local count=0
+            while IFS= read -r name; do
+                [[ -z "$name" ]] && continue
+                if [[ -n "$namespace" ]]; then
+                    if [[ "$namespace" == "library" ]]; then
+                        echo "docker.io/library/${name}"
+                    else
+                        echo "${namespace}/${name}"
+                    fi
+                else
+                    echo "docker.io/library/${name}"
+                fi
+                ((count++))
+            done <<< "$all_results"
+            echo "全量通配符扩展完成，共 ${count} 个镜像" >&2
             return
         fi
         
@@ -118,15 +157,20 @@ expand_wildcard() {
         echo "匹配模式：${regex_pattern}" >&2
         local count=0
         while IFS= read -r name; do
-            if [[ -n "$name" && "$name" =~ $regex_pattern ]]; then
+            [[ -z "$name" ]] && continue
+            if [[ "$name" =~ $regex_pattern ]]; then
                 if [[ -n "$namespace" ]]; then
-                    echo "${namespace}/${name}"
+                    if [[ "$namespace" == "library" ]]; then
+                        echo "docker.io/library/${name}"
+                    else
+                        echo "${namespace}/${name}"
+                    fi
                 else
                     echo "docker.io/library/${name}"
                 fi
                 ((count++))
             fi
-        done <<< "$results"
+        done <<< "$all_results"
         echo "通配符扩展完成，找到 ${count} 个镜像" >&2
     else
         # 无通配符，原样输出
