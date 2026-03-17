@@ -51,18 +51,28 @@ expand_wildcard() {
     if [[ "$pattern" == *"*"* ]]; then
         echo "正在扩展通配符：${pattern}" >&2
         
-        # 提取通配符前的前缀
+        # 提取通配符前的前缀（去掉末尾的 *）
         local prefix="${pattern%\*}"
         local namespace=""
-        local search_term="$prefix"
+        local search_term=""
         
-        # 如果存在 namespace（例如 "docker.io/library/alpine*"）
-        if [[ "$prefix" =~ ^([^/]+)/([^/]+)/(.*)$ ]]; then
-            namespace="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
-            search_term="${BASH_REMATCH[3]}"
-        elif [[ "$prefix" =~ ^([^/]+)/(.*)$ ]]; then
+        # 解析镜像名格式，去掉 docker.io 前缀
+        # 格式 1: docker.io/library/alpine* -> namespace=library, search_term=alpine
+        # 格式 2: docker.io/arm64v8/* -> namespace=arm64v8, search_term=*
+        # 格式 3: library/alpine* -> namespace=library, search_term=alpine
+        # 格式 4: arm64v8/* -> namespace=arm64v8, search_term=*
+        
+        if [[ "$prefix" =~ ^docker\.io/([^/]+)/(.*)$ ]]; then
+            # docker.io/xxx/yyy* 格式
             namespace="${BASH_REMATCH[1]}"
             search_term="${BASH_REMATCH[2]}"
+        elif [[ "$prefix" =~ ^([^/]+)/(.*)$ ]]; then
+            # xxx/yyy* 格式（没有 docker.io 前缀）
+            namespace="${BASH_REMATCH[1]}"
+            search_term="${BASH_REMATCH[2]}"
+        else
+            # 其他格式，整个作为 search_term
+            search_term="$prefix"
         fi
         
         echo "解析结果：namespace=${namespace}, search_term=${search_term}" >&2
