@@ -7,6 +7,16 @@ on:
         description: 'Manually synchronize a image'
         required: true
         type: string
+      max_parallel:
+        description: 'Maximum number of parallel sync tasks (default: 10)'
+        required: false
+        default: '10'
+        type: string
+      sync_only_popular_tags:
+        description: 'Only sync popular tags (latest, major versions, skip rc/beta/dev)'
+        required: false
+        default: 'false'
+        type: string
 
 jobs:
   sync-images:
@@ -32,5 +42,11 @@ jobs:
           chmod +x ./sync.sh
           chmod +x ./diff-image.sh
       - name: Sync Images
+        env:
+          MAX_PARALLEL: ${{ github.event.inputs.max_parallel || 10 }}
+          SYNC_ONLY_POPULAR_TAGS: ${{ github.event.inputs.sync_only_popular_tags || 'false' }}
         run: |
+          echo "开始手动同步镜像：${{ github.event.inputs.image }}"
+          echo "最大并行数：${MAX_PARALLEL}"
+          echo "只同步热门标签：${SYNC_ONLY_POPULAR_TAGS}"
           ./sync.sh
