@@ -7,9 +7,14 @@ on:
   workflow_dispatch:
     inputs:
       max_parallel:
-        description: 'Maximum number of parallel sync tasks (default: 3)'
+        description: 'Maximum number of parallel sync tasks (default: 10)'
         required: false
         default: '10'
+        type: string
+      sync_only_popular_tags:
+        description: 'Only sync popular tags (latest, major versions, skip rc/beta/dev)'
+        required: false
+        default: 'true'
         type: string
 
 jobs:
@@ -34,7 +39,9 @@ jobs:
           chmod +x ./diff-image.sh
       - name: Sync Images
         env:
-          MAX_PARALLEL: ${{ github.event.inputs.max_parallel || 3 }}
+          MAX_PARALLEL: ${{ github.event.inputs.max_parallel || 10 }}
+          SYNC_ONLY_POPULAR_TAGS: ${{ github.event.inputs.sync_only_popular_tags || 'true' }}
         run: |
           echo "开始并行同步镜像，最大并发数：${MAX_PARALLEL}"
+          echo "只同步热门标签：${SYNC_ONLY_POPULAR_TAGS}"
           ./sync.sh

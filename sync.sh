@@ -3,11 +3,36 @@
 # 并行执行控制
 MAX_PARALLEL="${MAX_PARALLEL:-3}"  # 默认最多 3 个并行任务
 
+# 标签过滤控制
+SYNC_ONLY_POPULAR_TAGS="${SYNC_ONLY_POPULAR_TAGS:-false}"  # 是否只同步热门标签
+
+# 热门标签白名单（匹配标签名）
+# 支持正则表达式
+POPULAR_TAG_PATTERNS=(
+    "^latest$"
+    "^[0-9]+\.[0-9]+"         # 主版本号，如 1.2, 3.4
+    "^[0-9]+$"                 # 纯数字版本，如 8, 11, 17
+    "^[0-9]+\.[0-9]+\.[0-9]+$" # 完整版本号，如 1.2.3
+)
+
+# 不想要的标签模式
+UNWANTED_TAG_PATTERNS=(
+    ".*-rc.*"                  # 候选版本
+    ".*-beta.*"                # 测试版本
+    ".*-alpha.*"               # 预览版本
+    ".*-dev.*"                 # 开发版本
+    ".*-nightly.*"             # 每夜构建
+    ".*-snapshot.*"            # 快照版本
+    "sha256:.*"                # SHA256 哈希
+    ".*-slim.*"                # slim 版本（可选，根据需要保留）
+)
+
 # 获取脚本所在目录
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "脚本目录：${SCRIPT_DIR}" >&2
 echo "当前目录：$(pwd)" >&2
+echo "只同步热门标签：${SYNC_ONLY_POPULAR_TAGS}" >&2
 
 # 标准化镜像名称函数（如果需要则添加 docker.io/ 前缀）
 normalize_image() {
@@ -188,9 +213,30 @@ expand_wildcard() {
     fi
 }
 
+# 构建标签过滤正则表达式
+build_tag_filter() {
+    local focus_pattern=""
+    local skip_pattern=""
+    
+    if [[ "${SYNC_ONLY_POPULAR_TAGS}" == "true" ]]; then
+        # 构建白名单正则（OR 连接）
+        focus_pattern="($(IFS='|'; echo "${POPULAR_TAG_PATTERNS[*]}"))"
+        
+        # 构建黑名单正则（OR 连接）
+        skip_pattern="($(IFS='|'; echo "${UNWANTED_TAG_PATTERNS[*]}"))"
+        
+        echo "热门标签过滤模式：${focus_pattern}" >&2
+        echo "跳过标签模式：${skip_pattern}" >&2
+    fi
+    
+    echo "${focus_pattern}:${skip_pattern}"
+}
+
 # 同步单个镜像的函数
 sync_image() {
     local image="$1"
+    local focus_filter="$2"
+    local skip_filter="$3"
     
     echo "Start sync image $image" >&2
     
@@ -200,7 +246,13 @@ sync_image() {
         part2=${BASH_REMATCH[3]}
         # 转换为目标镜像名称
         target_image="registry.cn-hangzhou.aliyuncs.com/spencerswagger/${part1}-${part2}"
-        # 执行命令
+        # 执行命令，传递标签过滤参数
+        if [[ -n "$focus_filter" ]]; then
+            FOCUS="$focus_filter"
+        fi
+        if [[ -n "$skip_filter" ]]; then
+            SKIP="$skip_filter"
+        fi
         INCREMENTAL=true QUICKLY=true SYNC=true ./diff-image.sh "$image" "$target_image"
     else
         echo "无效的镜像名称：$image" >&2
@@ -251,6 +303,11 @@ done < "${SCRIPT_DIR}/image.txt"
 total_images=${#all_images[@]}
 echo "总共需要处理 ${total_images} 个镜像，最大并行数：${MAX_PARALLEL}" >&2
 
+# 构建标签过滤规则
+tag_filter=$(build_tag_filter)
+focus_filter="${tag_filter%%:*}"
+skip_filter="${tag_filter##*:}"
+
 # 并行执行镜像同步
 failed_count=0
 success_count=0
@@ -260,7 +317,7 @@ for image in "${all_images[@]}"; do
     wait_for_jobs "$MAX_PARALLEL"
     
     # 在后台启动同步任务
-    sync_image "$image" &
+    sync_image "$image" "$focus_filter" "$skip_filter" &
 done
 
 # 等待所有后台任务完成

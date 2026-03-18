@@ -161,7 +161,9 @@ function copy-image() {
     local image1="${1:-}"
     local image2="${2:-}"
 
-    ${SKOPEO} copy --insecure-policy --retry-times "${RETRY}" --all --dest-tls-verify=false "docker://${image1}" "docker://${image2}"
+    # 移除 --all 参数，避免复制不支持的 manifest 类型
+    # 使用 --format=v2s2 强制使用 Docker Registry V2 Schema 2 格式
+    ${SKOPEO} copy --insecure-policy --retry-times "${RETRY}" --dest-tls-verify=false --format=v2s2 "docker://${image1}" "docker://${image2}"
 }
 
 function list-tags() {
