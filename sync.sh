@@ -225,20 +225,33 @@ build_tag_filter() {
         # 构建黑名单正则（OR 连接）
         skip_pattern="($(IFS='|'; echo "${UNWANTED_TAG_PATTERNS[*]}"))"
         
-        echo "热门标签过滤模式：${focus_pattern}" >&2
-        echo "跳过标签模式：${skip_pattern}" >&2
+        echo "热门标签过滤已启用" >&2
+        echo "  白名单模式：${focus_pattern}" >&2
+        echo "  黑名单模式：${skip_pattern}" >&2
+    else
+        echo "热门标签过滤已禁用，同步所有 tag" >&2
     fi
     
-    echo "${focus_pattern}:${skip_pattern}"
+    # 返回时用特殊标记区分空值
+    echo "FOCUS:${focus_pattern}:SKIP:${skip_pattern}"
 }
 
 # 同步单个镜像的函数
 sync_image() {
     local image="$1"
-    local focus_filter="$2"
-    local skip_filter="$3"
+    local filter_string="$2"
     
     echo "Start sync image $image" >&2
+    
+    # 解析过滤字符串
+    local focus_filter=""
+    local skip_filter=""
+    
+    if [[ -n "$filter_string" ]]; then
+        # 从 "FOCUS:xxx:SKIP:yyy" 格式中提取
+        focus_filter=$(echo "$filter_string" | sed 's/FOCUS:\(.*\):SKIP:.*/\1/')
+        skip_filter=$(echo "$filter_string" | sed 's/FOCUS:.*:SKIP://')
+    fi
     
     # 使用正则表达式提取两部分内容
     if [[ $image =~ (.*)/(.*)/(.*) ]]; then
@@ -251,9 +264,11 @@ sync_image() {
         (
             if [[ -n "$focus_filter" ]]; then
                 export FOCUS="$focus_filter"
+                echo "设置 FOCUS=${focus_filter}" >&2
             fi
             if [[ -n "$skip_filter" ]]; then
                 export SKIP="$skip_filter"
+                echo "设置 SKIP=${skip_filter}" >&2
             fi
             INCREMENTAL=true QUICKLY=true SYNC=true ./diff-image.sh "$image" "$target_image"
         )
@@ -308,8 +323,6 @@ echo "总共需要处理 ${total_images} 个镜像，最大并行数：${MAX_PAR
 
 # 构建标签过滤规则
 tag_filter=$(build_tag_filter)
-focus_filter="${tag_filter%%:*}"
-skip_filter="${tag_filter##*:}"
 
 # 并行执行镜像同步
 failed_count=0
@@ -319,8 +332,8 @@ for image in "${all_images[@]}"; do
     # 等待有空闲位置
     wait_for_jobs "$MAX_PARALLEL"
     
-    # 在后台启动同步任务
-    sync_image "$image" "$focus_filter" "$skip_filter" &
+    # 在后台启动同步任务，传递完整的过滤字符串
+    sync_image "$image" "$tag_filter" &
 done
 
 # 等待所有后台任务完成
