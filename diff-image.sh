@@ -258,6 +258,13 @@ function diff-image() {
 
     if [[ "${QUICKLY}" == "" ]] || [[ "${reduce}" != "" ]] || [[ "${increase}" != "" ]]; then
         echo "${SELF}: NOT-SYNCHRONIZED-TAGS: ${image1} and ${image2} are not in synchronized" >&2
+        
+        # 统计需要同步的 tag 数量
+        local reduce_count=$(echo "${reduce}" | wc -l)
+        local increase_count=$(echo "${increase}" | wc -l)
+        echo "${SELF}: 需要同步的缺失 tag 数量：${reduce_count}" >&2
+        echo "${SELF}: 目标镜像多余的 tag 数量：${increase_count}" >&2
+        
         if [[ "${DEBUG}" == "true" ]]; then
             echo "DEBUG: image1 ${image1}:" >&2
             echo "${tags1}" >&2
@@ -266,10 +273,14 @@ function diff-image() {
             echo "DEBUG: diff:" >&2
             echo "${diff_raw}" >&2
         fi
+        
+        # 添加进度计数
+        local sync_count=0
         for tag in ${reduce}; do
-            echo "${SELF}: NOT-SYNCHRONIZED: ${image1}:${tag} and ${image2}:${tag} are not in synchronized, ${image2}:${tag} does not exist" >&2
+            sync_count=$((sync_count + 1))
+            echo "${SELF}: [${sync_count}/${reduce_count}] NOT-SYNCHRONIZED: ${image1}:${tag} and ${image2}:${tag} are not in synchronized, ${image2}:${tag} does not exist" >&2
             if [[ "${SYNC}" == "true" ]]; then
-                echo "${SELF}: SYNCHRONIZE: synchronize from ${image1}:${tag} to ${image2}:${tag}" >&2
+                echo "${SELF}: [${sync_count}/${reduce_count}] SYNCHRONIZE: synchronize from ${image1}:${tag} to ${image2}:${tag}" >&2
                 copy-image "${image1}:${tag}" "${image2}:${tag}" >&2
             fi
         done

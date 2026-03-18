@@ -247,13 +247,16 @@ sync_image() {
         # 转换为目标镜像名称
         target_image="registry.cn-hangzhou.aliyuncs.com/spencerswagger/${part1}-${part2}"
         # 执行命令，传递标签过滤参数
-        if [[ -n "$focus_filter" ]]; then
-            FOCUS="$focus_filter"
-        fi
-        if [[ -n "$skip_filter" ]]; then
-            SKIP="$skip_filter"
-        fi
-        INCREMENTAL=true QUICKLY=true SYNC=true ./diff-image.sh "$image" "$target_image"
+        # 使用 export 确保环境变量被正确传递
+        (
+            if [[ -n "$focus_filter" ]]; then
+                export FOCUS="$focus_filter"
+            fi
+            if [[ -n "$skip_filter" ]]; then
+                export SKIP="$skip_filter"
+            fi
+            INCREMENTAL=true QUICKLY=true SYNC=true ./diff-image.sh "$image" "$target_image"
+        )
     else
         echo "无效的镜像名称：$image" >&2
         return 1
