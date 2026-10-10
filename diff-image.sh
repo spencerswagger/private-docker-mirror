@@ -161,9 +161,9 @@ function copy-image() {
     local image1="${1:-}"
     local image2="${2:-}"
 
-    # 移除 --all 参数，避免复制不支持的 manifest 类型
-    # 使用 --format=v2s2 强制使用 Docker Registry V2 Schema 2 格式
-    ${SKOPEO} copy --insecure-policy --retry-times "${RETRY}" --dest-tls-verify=false --format=oci --all "docker://${image1}" "docker://${image2}"
+    # --all 全架构同步，使用 --format=v2s2 强制转换为 Docker Registry V2 Schema 2 格式
+    # 避免推送 OCI image index 时 SWR 报 manifest invalid 导致多架构镜像同步失败
+    ${SKOPEO} copy --insecure-policy --retry-times "${RETRY}" --dest-tls-verify=false --format=v2s2 --all "docker://${image1}" "docker://${image2}"
 }
 
 function list-tags() {
