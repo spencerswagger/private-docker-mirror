@@ -33,7 +33,7 @@ jobs:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         run: |
-          echo "${DOCKER_PASSWORD}" | skopeo login --username ${DOCKER_USERNAME} --password-stdin registry.cn-hangzhou.aliyuncs.com
+          echo "${DOCKER_PASSWORD}" | skopeo login --username ${DOCKER_USERNAME} --password-stdin swr.cn-east-5.myhuaweicloud.com
       - name: Override image.txt
         run: |
           echo ${{ github.event.inputs.image }} > image.txt

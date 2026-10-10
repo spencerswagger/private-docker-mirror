@@ -258,7 +258,7 @@ sync_image() {
         part1=${BASH_REMATCH[2]}
         part2=${BASH_REMATCH[3]}
         # 转换为目标镜像名称
-        target_image="registry.cn-hangzhou.aliyuncs.com/spencerswagger/${part1}-${part2}"
+        target_image="swr.cn-east-5.myhuaweicloud.com/spencerswagger/${part1}-${part2}"
         # 执行命令，传递标签过滤参数
         # 使用 export 确保环境变量被正确传递
         (
