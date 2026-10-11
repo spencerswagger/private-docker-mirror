@@ -6,6 +6,9 @@ MAX_PARALLEL="${MAX_PARALLEL:-3}"  # 默认最多 3 个并行任务
 # 标签过滤控制
 SYNC_ONLY_POPULAR_TAGS="${SYNC_ONLY_POPULAR_TAGS:-false}"  # 是否只同步热门标签
 
+# 多架构同步控制
+SYNC_MULTI_ARCH="${SYNC_MULTI_ARCH:-false}"  # 是否同步多架构镜像（默认仅同步当前平台）
+
 # 热门标签白名单（匹配标签名）
 # 支持正则表达式
 # 基于 Redis 官方镜像的主流标签格式
@@ -33,6 +36,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "脚本目录：${SCRIPT_DIR}" >&2
 echo "当前目录：$(pwd)" >&2
 echo "只同步热门标签：${SYNC_ONLY_POPULAR_TAGS}" >&2
+echo "同步多架构：${SYNC_MULTI_ARCH}" >&2
 
 # 标准化镜像名称函数（如果需要则添加 docker.io/ 前缀）
 normalize_image() {
@@ -270,7 +274,7 @@ sync_image() {
                 export SKIP="$skip_filter"
                 echo "设置 SKIP=${skip_filter}" >&2
             fi
-            INCREMENTAL=true QUICKLY=true SYNC=true ./diff-image.sh "$image" "$target_image"
+            INCREMENTAL=true QUICKLY=true SYNC=true MULTI_ARCH="$SYNC_MULTI_ARCH" ./diff-image.sh "$image" "$target_image"
         )
     else
         echo "无效的镜像名称：$image" >&2

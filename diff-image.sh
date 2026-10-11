@@ -34,6 +34,9 @@ PARALLET="${PARALLET:-0}"
 # Synchronize images from source to destination
 SYNC="${SYNC:-}"
 
+# Synchronize multi-arch image (all platforms) or only the current platform
+MULTI_ARCH="${MULTI_ARCH:-false}"
+
 # Retry times
 RETRY="${RETRY:-5}"
 
@@ -52,6 +55,7 @@ if [[ "${DEBUG}" == "true" ]]; then
     echo "SKIP:            ${SKIP}"
     echo "PARALLET:        ${PARALLET}"
     echo "SYNC:            ${SYNC}"
+    echo "MULTI_ARCH:      ${MULTI_ARCH}"
     echo "RETRY:           ${RETRY}"
 fi
 
@@ -161,19 +165,24 @@ function copy-image() {
     local image1="${1:-}"
     local image2="${2:-}"
 
-    # 从源清单中提取真实平台，排除平台为 unknown/unknown 的 buildx attestation 清单
-    local platforms
-    platforms=$(${SKOPEO} inspect --raw --retry-times "${RETRY}" --tls-verify=false "docker://${image1}" 2>/dev/null |
-        ${JQ} -r '[.manifests[]? | select(.platform.architecture? and .platform.architecture != "unknown" and .platform.os? and .platform.os != "unknown") | (.platform.os + "/" + .platform.architecture + (if (.platform.variant // "") != "" then "/" + .platform.variant else "" end))] | unique | join(",")' 2>/dev/null)
+    # 默认只复制当前平台；仅当 MULTI_ARCH=true 时才同步多架构
+    if [[ "${MULTI_ARCH}" == "true" ]]; then
+        # 提取真实平台，排除 platform 为 unknown/unknown 的 buildx attestation 清单
+        # 注意：--multi-arch 只接受 OS/Architecture，不接受 variant（如 linux/arm/v7）
+        local platforms
+        platforms=$(${SKOPEO} inspect --raw --retry-times "${RETRY}" --tls-verify=false "docker://${image1}" 2>/dev/null |
+            ${JQ} -r '[.manifests[]? | select(.platform.architecture? and .platform.architecture != "unknown" and .platform.os? and .platform.os != "unknown") | (.platform.os + "/" + .platform.architecture)] | unique | join(",")' 2>/dev/null)
 
-    if [[ -n "${platforms}" ]]; then
-        # 多架构：只复制真实平台，--format=v2s2 强制 Docker Schema2 格式，--strip-removed-platforms 只保留已复制的平台
-        # --strip-removed-platforms 要求同时移除签名，避免 SWR 因引用缺失镜像的稀疏清单而报 manifest invalid
-        ${SKOPEO} copy --insecure-policy --retry-times "${RETRY}" --dest-tls-verify=false --format=v2s2 --multi-arch="${platforms}" --strip-removed-platforms --remove-signatures "docker://${image1}" "docker://${image2}"
-    else
-        # 单架构镜像：直接复制
-        ${SKOPEO} copy --insecure-policy --retry-times "${RETRY}" --dest-tls-verify=false --format=v2s2 "docker://${image1}" "docker://${image2}"
+        if [[ -n "${platforms}" ]]; then
+            # --format=v2s2 强制 Docker Schema2 格式，--strip-removed-platforms 只保留已复制的平台
+            # --strip-removed-platforms 要求同时移除签名，避免 SWR 因引用缺失镜像的稀疏清单而报 manifest invalid
+            ${SKOPEO} copy --insecure-policy --retry-times "${RETRY}" --dest-tls-verify=false --format=v2s2 --multi-arch="${platforms}" --strip-removed-platforms --remove-signatures "docker://${image1}" "docker://${image2}"
+            return
+        fi
     fi
+
+    # 单平台同步：直接复制，不产生多架构清单
+    ${SKOPEO} copy --insecure-policy --retry-times "${RETRY}" --dest-tls-verify=false --format=v2s2 "docker://${image1}" "docker://${image2}"
 }
 
 function list-tags() {
