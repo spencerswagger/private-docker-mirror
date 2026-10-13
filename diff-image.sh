@@ -176,13 +176,19 @@ function copy-image() {
         if [[ -n "${platforms}" ]]; then
             # --format=v2s2 强制 Docker Schema2 格式，--strip-removed-platforms 只保留已复制的平台
             # --strip-removed-platforms 要求同时移除签名，避免 SWR 因引用缺失镜像的稀疏清单而报 manifest invalid
-            ${SKOPEO} copy --insecure-policy --retry-times "${RETRY}" --dest-tls-verify=false --format=v2s2 --multi-arch="${platforms}" --strip-removed-platforms --remove-signatures "docker://${image1}" "docker://${image2}"
+            # --dest-compress-format=gzip：Docker Schema2 不接受 zstd 压缩层
+            #   （application/vnd.oci.image.layer.v1.tar+zstd），必须重压为 gzip，
+            #   否则 skopeo 在清单转换阶段直接 fatal 退出（skopeo#1977，1.14.0 起该参数生效）
+            ${SKOPEO} copy --insecure-policy --retry-times "${RETRY}" --dest-tls-verify=false --format=v2s2 --dest-compress-format=gzip --multi-arch="${platforms}" --strip-removed-platforms --remove-signatures "docker://${image1}" "docker://${image2}"
             return
         fi
     fi
 
     # 单平台同步：直接复制，不产生多架构清单
-    ${SKOPEO} copy --insecure-policy --retry-times "${RETRY}" --dest-tls-verify=false --format=v2s2 "docker://${image1}" "docker://${image2}"
+    # --dest-compress-format=gzip：源镜像若使用 zstd 压缩层，会被重压为 gzip。
+    # 不加该参数时 --format=v2s2 会在清单转换阶段报
+    # "zstd compression is not officially supported for docker images" 并中止复制
+    ${SKOPEO} copy --insecure-policy --retry-times "${RETRY}" --dest-tls-verify=false --format=v2s2 --dest-compress-format=gzip "docker://${image1}" "docker://${image2}"
 }
 
 function list-tags() {

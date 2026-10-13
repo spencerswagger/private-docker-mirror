@@ -332,15 +332,34 @@ tag_filter=$(build_tag_filter)
 failed_count=0
 success_count=0
 
+# 记录每个后台任务的 PID：裸 wait 不带参数时 POSIX 规定恒返回 0，
+# 会把 skopeo/diff-image.sh 的失败全部吞掉，导致 CI 绿灯但镜像实际没有同步
+pids=()
+
 for image in "${all_images[@]}"; do
     # 等待有空闲位置
     wait_for_jobs "$MAX_PARALLEL"
     
     # 在后台启动同步任务，传递完整的过滤字符串
     sync_image "$image" "$tag_filter" &
+    pids+=($!)
 done
 
-# 等待所有后台任务完成
-wait
+# 等待所有后台任务完成，逐个回收退出码并统计失败
+for pid in "${pids[@]}"; do
+    if wait "${pid}"; then
+        success_count=$((success_count + 1))
+    else
+        failed_count=$((failed_count + 1))
+        echo "同步失败：后台任务 ${pid} 以非零状态退出" >&2
+    fi
+done
+
+echo "同步完成：成功 ${success_count} 个，失败 ${failed_count} 个，共 ${total_images} 个镜像" >&2
+
+if [[ "${failed_count}" -gt 0 ]]; then
+    echo "存在同步失败的镜像，以退出码 1 结束" >&2
+    exit 1
+fi
 
 echo "任务完成" >&2
