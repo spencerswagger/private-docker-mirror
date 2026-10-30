@@ -21,8 +21,10 @@ while read -r line; do
   repo="${src/\//-}"
   url="${BASE}/v2/manage/namespaces/${NS}/repos/${repo}"
   body='{"is_public": true}'
-  mapfile -t H < <(python3 "${SCRIPT_DIR}/hwc_sign.py" --lines PATCH "$url" "$body") || { fail=$((fail+1)); continue; }
-  AUTH="${H[0]}"; DATE="${H[1]}"
+  SIG=$(mktemp); if ! python3 "${SCRIPT_DIR}/hwc_sign.py" --lines PATCH "$url" "$body" > "$SIG" 2>/dev/null; then
+    rm -f "$SIG"; fail=$((fail+1)); echo "  ! ${repo} → 签名失败"; continue
+  fi
+  { read -r AUTH; read -r DATE; } < "$SIG"; rm -f "$SIG"
   code=$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$url" \
     -H "Authorization: ${AUTH}" -H "X-Sdk-Date: ${DATE}" \
     -H 'Content-Type: application/json' -d "$body")

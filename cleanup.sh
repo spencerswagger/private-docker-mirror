@@ -11,9 +11,10 @@ if [[ -z "${SWR_AK:-}" || -z "${SWR_SK:-}" ]]; then echo "跳过：缺少 SWR_AK
 command -v python3 >/dev/null || { echo "::error::需要 python3" >&2; exit 1; }
 
 sign_headers() {  # $1=method $2=url [$3=body] -> 设 AUTH / DATE
-  local out
-  mapfile -t H < <(python3 "${SCRIPT_DIR}/hwc_sign.py" --lines "$1" "$2" "${3:-}") || return 1
-  AUTH="${H[0]}"; DATE="${H[1]}"
+  local f
+  f=$(mktemp)
+  if ! python3 "${SCRIPT_DIR}/hwc_sign.py" --lines "$1" "$2" "${3:-}" > "$f" 2>/dev/null; then rm -f "$f"; return 1; fi
+  { read -r AUTH; read -r DATE; } < "$f"; rm -f "$f"
 }
 
 LIST_URL="${BASE}/v2/manage/repos?namespace=${NS}&limit=200&offset=0"
