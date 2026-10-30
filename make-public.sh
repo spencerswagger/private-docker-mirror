@@ -16,7 +16,7 @@ TOKEN=$(curl -s -i -X POST "https://iam.${REGION}.myhuaweicloud.com/v3/auth/toke
   -H 'Content-Type: application/json' \
   -d "{\"auth\":{\"identity\":{\"methods\":[\"password\"],\"password\":{\"user\":{\"name\":\"${SWR_IAM_USER}\",\"password\":\"${SWR_IAM_PASSWORD}\",\"domain\":{\"name\":\"${SWR_IAM_DOMAIN}\"}}}},\"scope\":{\"project\":{\"name\":\"${REGION}\"}}}}" \
   | awk -F': ' 'tolower($1)=="x-subject-token"{print $2}' | tr -d '\r')
-if [[ -z "$TOKEN" ]]; then echo "取 IAM token 失败，跳过" >&2; exit 0; fi
+if [[ -z "$TOKEN" ]]; then echo "::error::取 IAM token 失败（凭据已提供），判为失败" >&2; exit 1; fi
 
 ok=0; fail=0
 while read -r line; do
@@ -25,9 +25,11 @@ while read -r line; do
   src="${line#docker.io/}"; src="${src%%:*}"   # library/nginx
   repo="${src/\//-}"                           # library-nginx
   code=$(curl -s -o /dev/null -w '%{http_code}' -X PATCH \
-    "https://swr.${REGION}.myhuaweicloud.com/v2/manage/namespaces/${NS}/repositories/${repo}" \
+    "https://swr.${REGION}.myhuaweicloud.com/v2/manage/namespaces/${NS}/repos/${repo}" \
     -H "X-Auth-Token: ${TOKEN}" -H 'Content-Type: application/json' \
     -d '{"is_public": true}')
-  if [[ "$code" == "200" || "$code" == "204" ]]; then ok=$((ok+1)); else fail=$((fail+1)); echo "  ! ${repo} → HTTP ${code}"; fi
+  if [[ "$code" == "200" || "$code" == "201" || "$code" == "204" ]]; then ok=$((ok+1)); else fail=$((fail+1)); echo "  ! ${repo} → HTTP ${code}"; fi
 done < "${SCRIPT_DIR}/image.txt"
 echo "置公开完成：成功 ${ok}，失败 ${fail}"
+if [[ ${ok} -eq 0 ]]; then echo "::error::一条都没置公开成功，判为失败" >&2; exit 1; fi
+if [[ ${fail} -gt 0 ]]; then echo "::error::有 ${fail} 条失败" >&2; exit 1; fi

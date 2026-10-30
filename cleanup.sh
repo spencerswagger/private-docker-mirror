@@ -13,11 +13,18 @@ fi
 TOKEN=$(curl -s -i -X POST "https://iam.${REGION}.myhuaweicloud.com/v3/auth/tokens" -H 'Content-Type: application/json' \
   -d "{\"auth\":{\"identity\":{\"methods\":[\"password\"],\"password\":{\"user\":{\"name\":\"${SWR_IAM_USER}\",\"password\":\"${SWR_IAM_PASSWORD}\",\"domain\":{\"name\":\"${SWR_IAM_DOMAIN}\"}}}},\"scope\":{\"project\":{\"name\":\"${REGION}\"}}}}" \
   | awk -F': ' 'tolower($1)=="x-subject-token"{print $2}' | tr -d '\r')
-if [[ -z "$TOKEN" ]]; then echo "取 IAM token 失败，跳过" >&2; exit 0; fi
+if [[ -z "$TOKEN" ]]; then echo "::error::取 IAM token 失败（凭据已提供），判为失败" >&2; exit 1; fi
 
 KEEP=$(grep -v '^#' "${SCRIPT_DIR}/image.txt" | grep -v '^$' | grep -v '\*' | sed 's#^docker.io/##; s#:.*##; s#/#-#g' | sort -u)
-REPOS=$(curl -s "https://swr.${REGION}.myhuaweicloud.com/v2/manage/namespaces/${NS}/repositories?limit=200&offset=0" \
+REPOS=$(curl -s "https://swr.${REGION}.myhuaweicloud.com/v2/manage/repos?namespace=${NS}&limit=200&offset=0" \
   -H "X-Auth-Token: ${TOKEN}" | grep -oP '"name"\s*:\s*"\K[^"]+' | sort -u)
+WILDCARD=$(grep -c '\*' "${SCRIPT_DIR}/image.txt" || true)
+KEEP_N=$(echo "$KEEP" | grep -c . || true)
+REPO_N=$(echo "$REPOS" | grep -c . || true)
+# 下限保护：白名单里出现通配符、或白名单过小、或没有识别到现存仓库，一律拒绝删除
+if [[ "${WILDCARD:-0}" -gt 0 ]]; then echo "::error::image.txt 仍含通配行，清理不安全，终止" >&2; exit 1; fi
+if [[ "${KEEP_N:-0}" -lt 10 ]]; then echo "::error::白名单只有 ${KEEP_N} 个仓库（<10），清理不安全，终止" >&2; exit 1; fi
+if [[ "${REPO_N:-0}" -eq 0 ]]; then echo "::error::没读到 SWR 现有仓库（可能 token/接口异常），终止" >&2; exit 1; fi
 TO_DELETE=$(comm -23 <(echo "$REPOS") <(echo "$KEEP"))
 echo "现有仓库 $(echo "$REPOS" | grep -c . ) 个；白名单 $(echo "$KEEP" | grep -c .) 个；待清理 $(echo "$TO_DELETE" | grep -c .) 个（模式：${MODE}）"
 for r in $TO_DELETE; do

@@ -56,7 +56,7 @@ docker pull swr.cn-east-5.myhuaweicloud.com/spencerswagger/library-postgres:17-a
 
 - 同步引擎：`skopeo`（先 `skopeo copy` 到 SWR，再按平台/架构处理）
 - 默认**只同步当前平台**（amd64）；要 arm64 需显式 `sync_multi_arch=true`
-- 多架构镜像走 `arm64v8/*` 之类的独立 namespace
+- `sync_only_popular_tags` 只对**通配展开**生效；`image.txt` 里写死的 tag（如 `-slim`、`-alpine`）**一定会同步**，不受该开关影响
 
 ## 四、我想加新镜像怎么办
 
