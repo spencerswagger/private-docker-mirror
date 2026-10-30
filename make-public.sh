@@ -4,7 +4,7 @@
 set -u
 REGION="${SWR_REGION:-cn-east-5}"
 NS="${SWR_NAMESPACE:-spencerswagger}"
-BASE="https://swr.${REGION}.myhuaweicloud.com"
+BASE="https://${SWR_API_HOST:-swr-api.${REGION}.myhuaweicloud.com}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [[ -z "${SWR_AK:-}" || -z "${SWR_SK:-}" ]]; then

@@ -4,7 +4,7 @@ set -u
 REGION="${SWR_REGION:-cn-east-5}"
 NS="${SWR_NAMESPACE:-spencerswagger}"
 MODE="${CLEANUP_MODE:-dry-run}"
-BASE="https://swr.${REGION}.myhuaweicloud.com"
+BASE="https://${SWR_API_HOST:-swr-api.${REGION}.myhuaweicloud.com}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [[ -z "${SWR_AK:-}" || -z "${SWR_SK:-}" ]]; then echo "跳过：缺少 SWR_AK / SWR_SK" >&2; exit 0; fi
