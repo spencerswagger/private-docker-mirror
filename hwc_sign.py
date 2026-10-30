@@ -31,7 +31,10 @@ def sign(method: str, url: str, body: str = "") -> dict[str, str]:
     u = urlsplit(url)
     host = u.hostname or ""
     # 华为云要求：路径与 query 都做 URI 编码（保留 '/' 与 '=' '&' 的分隔语义）
-    path = quote(u.path if u.path else "/", safe="/-_.~%")
+    raw_path = u.path if u.path else "/"
+    if not raw_path.endswith("/"):
+        raw_path += "/"           # 华为规范要求 CanonicalURI 以 '/' 结尾
+    path = quote(raw_path, safe="/-_.~%")
     query = "&".join(
         sorted(
             "=".join(quote(p, safe="-_.~") for p in kv.split("=", 1))
@@ -46,13 +49,14 @@ def sign(method: str, url: str, body: str = "") -> dict[str, str]:
     canonical_headers = f"host:{host}\nx-sdk-date:{sdk_date}\n"
     signed_headers = "host;x-sdk-date"
     canonical_request = "\n".join([method.upper(), path, query, canonical_headers, signed_headers, payload_hash])
-    scope = f"{short_date}/{region}/{service}/request"
+    scope = f"{short_date}/{region}/{service}/sdk_request"
     string_to_sign = "\n".join(["SDK-HMAC-SHA256", sdk_date, scope,
                                 hashlib.sha256(canonical_request.encode()).hexdigest()])
     k_date = _hmac(("SDK" + sk).encode(), short_date)
     k_region = _hmac(k_date, region)
     k_service = _hmac(k_region, service)
-    signature = hmac.new(k_service, string_to_sign.encode(), hashlib.sha256).hexdigest()
+    k_signing = _hmac(k_service, "sdk_request")
+    signature = hmac.new(k_signing, string_to_sign.encode(), hashlib.sha256).hexdigest()
     auth = (f"SDK-HMAC-SHA256 Access={ak}, SignedHeaders={signed_headers}, Signature={signature}")
     return {"Authorization": auth, "X-Sdk-Date": sdk_date, "Host": host}
 
