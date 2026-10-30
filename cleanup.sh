@@ -1,0 +1,30 @@
+#!/bin/bash
+# 清理 SWR 里不在 image.txt 白名单中的仓库。
+# CLEANUP_MODE=dry-run（默认，只打印）| delete（真删）
+set -u
+REGION="${SWR_REGION:-cn-east-5}"
+NS="${SWR_NAMESPACE:-spencerswagger}"
+MODE="${CLEANUP_MODE:-dry-run}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [[ -z "${SWR_IAM_USER:-}" || -z "${SWR_IAM_PASSWORD:-}" || -z "${SWR_IAM_DOMAIN:-}" ]]; then
+  echo "跳过：缺少 SWR_IAM_* 凭据" >&2; exit 0
+fi
+TOKEN=$(curl -s -i -X POST "https://iam.${REGION}.myhuaweicloud.com/v3/auth/tokens" -H 'Content-Type: application/json' \
+  -d "{\"auth\":{\"identity\":{\"methods\":[\"password\"],\"password\":{\"user\":{\"name\":\"${SWR_IAM_USER}\",\"password\":\"${SWR_IAM_PASSWORD}\",\"domain\":{\"name\":\"${SWR_IAM_DOMAIN}\"}}}},\"scope\":{\"project\":{\"name\":\"${REGION}\"}}}}" \
+  | awk -F': ' 'tolower($1)=="x-subject-token"{print $2}' | tr -d '\r')
+if [[ -z "$TOKEN" ]]; then echo "取 IAM token 失败，跳过" >&2; exit 0; fi
+
+KEEP=$(grep -v '^#' "${SCRIPT_DIR}/image.txt" | grep -v '^$' | grep -v '\*' | sed 's#^docker.io/##; s#:.*##; s#/#-#g' | sort -u)
+REPOS=$(curl -s "https://swr.${REGION}.myhuaweicloud.com/v2/manage/namespaces/${NS}/repositories?limit=200&offset=0" \
+  -H "X-Auth-Token: ${TOKEN}" | grep -oP '"name"\s*:\s*"\K[^"]+' | sort -u)
+TO_DELETE=$(comm -23 <(echo "$REPOS") <(echo "$KEEP"))
+echo "现有仓库 $(echo "$REPOS" | grep -c . ) 个；白名单 $(echo "$KEEP" | grep -c .) 个；待清理 $(echo "$TO_DELETE" | grep -c .) 个（模式：${MODE}）"
+for r in $TO_DELETE; do
+  if [[ "$MODE" == "delete" ]]; then
+    code=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "https://swr.${REGION}.myhuaweicloud.com/v2/manage/namespaces/${NS}/repositories/${r}" -H "X-Auth-Token: ${TOKEN}")
+    echo "  deleted ${r} (HTTP ${code})"
+  else
+    echo "  [dry-run] 会删除 ${r}"
+  fi
+done
