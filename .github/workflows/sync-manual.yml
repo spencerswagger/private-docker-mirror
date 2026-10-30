@@ -22,6 +22,11 @@ on:
         required: false
         default: 'false'
         type: string
+      cleanup_mode:
+        description: 'Cleanup mode: dry-run (default, only print) or delete'
+        required: false
+        default: 'dry-run'
+        type: string
 
 jobs:
   sync-images:
@@ -46,6 +51,8 @@ jobs:
         run: |
           chmod +x ./sync.sh
           chmod +x ./diff-image.sh
+          chmod +x ./make-public.sh
+          chmod +x ./cleanup.sh
       - name: Sync Images
         env:
           MAX_PARALLEL: ${{ github.event.inputs.max_parallel || 10 }}
@@ -57,3 +64,11 @@ jobs:
           echo "只同步热门标签：${SYNC_ONLY_POPULAR_TAGS}"
           echo "同步多架构：${SYNC_MULTI_ARCH}"
           ./sync.sh
+
+      - name: Make images public
+        env:
+          SWR_AK: ${{ secrets.SWR_AK }}
+          SWR_SK: ${{ secrets.SWR_SK }}
+          SWR_REGION: cn-east-5
+          SWR_NAMESPACE: spencerswagger
+        run: ./make-public.sh
