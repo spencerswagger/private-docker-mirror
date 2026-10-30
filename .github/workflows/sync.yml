@@ -64,6 +64,7 @@ jobs:
         env:
           SWR_AK: ${{ secrets.SWR_AK }}
           SWR_SK: ${{ secrets.SWR_SK }}
+          MAKE_PUBLIC_VERIFY: 'true'
           SWR_REGION: cn-east-5
           SWR_NAMESPACE: spencerswagger
         run: ./make-public.sh
@@ -73,6 +74,7 @@ jobs:
         env:
           SWR_AK: ${{ secrets.SWR_AK }}
           SWR_SK: ${{ secrets.SWR_SK }}
+          MAKE_PUBLIC_VERIFY: 'true'
           SWR_REGION: cn-east-5
           SWR_NAMESPACE: spencerswagger
           CLEANUP_MODE: ${{ github.event.inputs.cleanup_mode || 'dry-run' }}

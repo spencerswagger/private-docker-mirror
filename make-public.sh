@@ -48,3 +48,14 @@ done < "${SCRIPT_DIR}/image.txt"
 echo "置公开完成：成功 ${ok}，失败 ${fail}"
 if [[ ${ok} -eq 0 ]]; then echo "::error::一条都没成功，判为失败" >&2; exit 1; fi
 if [[ ${fail} -gt 0 ]]; then echo "::error::有 ${fail} 条失败" >&2; exit 1; fi
+
+if [[ "${MAKE_PUBLIC_VERIFY:-false}" == "true" ]]; then
+  first=$(grep -v '^#' "${SCRIPT_DIR}/image.txt" | grep -v '^$' | grep -v '\*' | head -1)
+  r="${first#docker.io/}"; r="${r%%:*}"; r="${r/\//-}"
+  for u in "${BASE}/v2/manage/namespaces/${NS}/repos/${r}" "${BASE}/v2/manage/namespaces/${NS}" "${BASE}/v2/manage/repos?namespace=${NS}&limit=3&offset=0"; do
+    f=$(mktemp); python3 "${SCRIPT_DIR}/hwc_sign.py" --lines GET "$u" > "$f" 2>/dev/null || { rm -f "$f"; continue; }
+    { read -r A3; read -r D3; } < "$f"; rm -f "$f"
+    rr=$(curl -s -w '\n%{http_code}' "$u" -H "Authorization: ${A3}" -H "X-Sdk-Date: ${D3}")
+    echo "  [verify] GET $u → $(echo "$rr" | tail -1) $(echo "$rr" | sed '$d' | head -c 400 | tr -d '\n')"
+  done
+fi
