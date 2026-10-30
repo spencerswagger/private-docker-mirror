@@ -49,14 +49,13 @@ def sign(method: str, url: str, body: str = "") -> dict[str, str]:
     canonical_headers = f"host:{host}\nx-sdk-date:{sdk_date}\n"
     signed_headers = "host;x-sdk-date"
     canonical_request = "\n".join([method.upper(), path, query, canonical_headers, signed_headers, payload_hash])
-    scope = f"{short_date}/{region}/{service}/sdk_request"
-    string_to_sign = "\n".join(["SDK-HMAC-SHA256", sdk_date, scope,
-                                hashlib.sha256(canonical_request.encode()).hexdigest()])
-    k_date = _hmac(("SDK" + sk).encode(), short_date)
-    k_region = _hmac(k_date, region)
-    k_service = _hmac(k_region, service)
-    k_signing = _hmac(k_service, "sdk_request")
-    signature = hmac.new(k_signing, string_to_sign.encode(), hashlib.sha256).hexdigest()
+    # 华为 v3（Access=AK 头形）：StringToSign 只有 3 段，HMAC key 就是 SK
+    string_to_sign = "\n".join([
+        "SDK-HMAC-SHA256",
+        sdk_date,
+        hashlib.sha256(canonical_request.encode()).hexdigest(),
+    ])
+    signature = hmac.new(sk.encode(), string_to_sign.encode(), hashlib.sha256).hexdigest()
     auth = (f"SDK-HMAC-SHA256 Access={ak}, SignedHeaders={signed_headers}, Signature={signature}")
     return {"Authorization": auth, "X-Sdk-Date": sdk_date, "Host": host}
 
