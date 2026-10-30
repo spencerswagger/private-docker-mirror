@@ -72,7 +72,7 @@ docker pull swr.cn-east-5.myhuaweicloud.com/spencerswagger/library-postgres:17-a
 |---|---|---|
 | `DOCKER_USERNAME` / `DOCKER_PASSWORD` | 拉 Docker Hub（避免匿名限流） | 建议 |
 | `SWR_USERNAME` / `SWR_PASSWORD` | `skopeo login` 推送 SWR（本质是一对 AK/SK 的登录串） | **必需** |
-| `SWR_IAM_USER` / `SWR_IAM_PASSWORD` / `SWR_IAM_DOMAIN` | 调 SWR 管理 API（把仓库置为「公开」、清理清单外仓库） | 置公开需要 |
+| `SWR_AK` / `SWR_SK` | 调 SWR 管理 API（置「公开」/ 清理清单外仓库），AK/SK 签名，见 `hwc_sign.py` | 置公开需要 |
 
-- SWR 新建仓库默认**私有**，别人拉不到；`Make public` 步骤会把本次同步的仓库 `is_public` 置 true。
+- SWR 新建仓库默认**私有**，别人拉不到；`Make public` 步骤会用 AK/SK 签名调管理 API，把本次同步的仓库 `is_public` 置 true（`hwc_sign.py` 是纯标准库签名脚本）。
 - 清理（`Cleanup`）默认 **dry-run 只打印**，要真删除需手动传 `cleanup_mode=delete`。

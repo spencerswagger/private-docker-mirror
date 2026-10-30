@@ -62,9 +62,8 @@ jobs:
 
       - name: Make images public
         env:
-          SWR_IAM_USER: ${{ secrets.SWR_IAM_USER }}
-          SWR_IAM_PASSWORD: ${{ secrets.SWR_IAM_PASSWORD }}
-          SWR_IAM_DOMAIN: ${{ secrets.SWR_IAM_DOMAIN }}
+          SWR_AK: ${{ secrets.SWR_AK }}
+          SWR_SK: ${{ secrets.SWR_SK }}
           SWR_REGION: cn-east-5
           SWR_NAMESPACE: spencerswagger
         run: ./make-public.sh
@@ -72,9 +71,8 @@ jobs:
       # 只在批量任务里清理（Sync Manually 会把 image.txt 覆盖成单条，清理会误删白名单）
       - name: Cleanup outside whitelist
         env:
-          SWR_IAM_USER: ${{ secrets.SWR_IAM_USER }}
-          SWR_IAM_PASSWORD: ${{ secrets.SWR_IAM_PASSWORD }}
-          SWR_IAM_DOMAIN: ${{ secrets.SWR_IAM_DOMAIN }}
+          SWR_AK: ${{ secrets.SWR_AK }}
+          SWR_SK: ${{ secrets.SWR_SK }}
           SWR_REGION: cn-east-5
           SWR_NAMESPACE: spencerswagger
           CLEANUP_MODE: ${{ github.event.inputs.cleanup_mode || 'dry-run' }}
