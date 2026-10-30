@@ -12,9 +12,8 @@ command -v python3 >/dev/null || { echo "::error::需要 python3" >&2; exit 1; }
 
 sign_headers() {  # $1=method $2=url [$3=body] -> 设 AUTH / DATE
   local out
-  out=$(SWR_REGION="$REGION" python3 "${SCRIPT_DIR}/hwc_sign.py" --json "$1" "$2" "${3:-}") || return 1
-  AUTH=$(python3 -c 'import json,sys;print(json.load(sys.stdin)["Authorization"])' <<<"$out")
-  DATE=$(python3 -c 'import json,sys;print(json.load(sys.stdin)["X-Sdk-Date"])' <<<"$out")
+  mapfile -t H < <(python3 "${SCRIPT_DIR}/hwc_sign.py" --lines "$1" "$2" "${3:-}") || return 1
+  AUTH="${H[0]}"; DATE="${H[1]}"
 }
 
 LIST_URL="${BASE}/v2/manage/repos?namespace=${NS}&limit=200&offset=0"

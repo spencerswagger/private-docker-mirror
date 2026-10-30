@@ -2,8 +2,9 @@
 """华为云 AK/SK 签名（SDK-HMAC-SHA256）—— 只用标准库。
 
 用法（被 shell 调用）：
-  python3 hwc_sign.py <METHOD> <URL> [BODY]      # 打印可直接用的 curl 头参数
-  python3 hwc_sign.py --json <METHOD> <URL> [BODY]  # 打印 JSON: {"Authorization":..,"X-Sdk-Date":..,"Host":..}
+  python3 hwc_sign.py <METHOD> <URL> [BODY]          # key: value 两行
+  python3 hwc_sign.py --lines <METHOD> <URL> [BODY]  # 纯值两行（Authorization / X-Sdk-Date），shell 最好用
+  python3 hwc_sign.py --json <METHOD> <URL> [BODY]   # JSON
 
 环境变量：SWR_AK / SWR_SK；可选 SWR_REGION(默认 cn-east-5)、SWR_SERVICE(默认 swr)
 """
@@ -25,8 +26,6 @@ def _hmac(key: bytes, msg: str) -> bytes:
 def sign(method: str, url: str, body: str = "") -> dict[str, str]:
     ak = os.environ["SWR_AK"].strip()
     sk = os.environ["SWR_SK"].strip()
-    region = os.environ.get("SWR_REGION", "cn-east-5")
-    service = os.environ.get("SWR_SERVICE", "swr")
 
     u = urlsplit(url)
     host = u.hostname or ""
@@ -41,9 +40,7 @@ def sign(method: str, url: str, body: str = "") -> dict[str, str]:
             for kv in u.query.split("&") if kv
         )
     )
-    now = datetime.datetime.now(datetime.timezone.utc)
-    sdk_date = now.strftime("%Y%m%dT%H%M%SZ")
-    short_date = now.strftime("%Y%m%d")
+    sdk_date = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
     payload_hash = hashlib.sha256(body.encode() if body else b"").hexdigest()
     canonical_headers = f"host:{host}\nx-sdk-date:{sdk_date}\n"
@@ -57,20 +54,26 @@ def sign(method: str, url: str, body: str = "") -> dict[str, str]:
     ])
     signature = hmac.new(sk.encode(), string_to_sign.encode(), hashlib.sha256).hexdigest()
     auth = (f"SDK-HMAC-SHA256 Access={ak}, SignedHeaders={signed_headers}, Signature={signature}")
-    return {"Authorization": auth, "X-Sdk-Date": sdk_date, "Host": host}
+    return {"Authorization": auth, "X-Sdk-Date": sdk_date}
 
 
 def main() -> None:
     args = sys.argv[1:]
     as_json = False
-    if args and args[0] == "--json":
-        as_json = True; args = args[1:]
+    mode = "json"
+    if args and args[0] in ("--json", "--lines"):
+        mode = args[0][2:]; args = args[1:]
     if len(args) < 2:
         raise SystemExit("用法: hwc_sign.py [--json] <METHOD> <URL> [BODY]")
     method, url = args[0], args[1]
     body = args[2] if len(args) > 2 else ""
     h = sign(method, url, body)
-    print(json.dumps(h) if as_json else "\n".join(f"{k}: {v}" for k, v in h.items()))
+    if mode == "json":
+        print(json.dumps(h))
+    elif mode == "lines":
+        print(h["Authorization"]); print(h["X-Sdk-Date"])
+    else:
+        print("\n".join(f"{k}: {v}" for k, v in h.items()))
 
 
 if __name__ == "__main__":

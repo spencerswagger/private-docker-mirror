@@ -21,9 +21,8 @@ while read -r line; do
   repo="${src/\//-}"
   url="${BASE}/v2/manage/namespaces/${NS}/repos/${repo}"
   body='{"is_public": true}'
-  hdrs=$(SWR_REGION="$REGION" python3 "${SCRIPT_DIR}/hwc_sign.py" --json PATCH "$url" "$body") || { fail=$((fail+1)); continue; }
-  AUTH=$(python3 -c 'import json,sys;print(json.load(sys.stdin)["Authorization"])' <<<"$hdrs")
-  DATE=$(python3 -c 'import json,sys;print(json.load(sys.stdin)["X-Sdk-Date"])' <<<"$hdrs")
+  mapfile -t H < <(python3 "${SCRIPT_DIR}/hwc_sign.py" --lines PATCH "$url" "$body") || { fail=$((fail+1)); continue; }
+  AUTH="${H[0]}"; DATE="${H[1]}"
   code=$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$url" \
     -H "Authorization: ${AUTH}" -H "X-Sdk-Date: ${DATE}" \
     -H 'Content-Type: application/json' -d "$body")
