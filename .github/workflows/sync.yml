@@ -61,7 +61,6 @@ jobs:
           ./sync.sh
 
       - name: Make images public
-        continue-on-error: true
         env:
           SWR_IAM_USER: ${{ secrets.SWR_IAM_USER }}
           SWR_IAM_PASSWORD: ${{ secrets.SWR_IAM_PASSWORD }}
@@ -72,7 +71,6 @@ jobs:
 
       # 只在批量任务里清理（Sync Manually 会把 image.txt 覆盖成单条，清理会误删白名单）
       - name: Cleanup outside whitelist
-        continue-on-error: true
         env:
           SWR_IAM_USER: ${{ secrets.SWR_IAM_USER }}
           SWR_IAM_PASSWORD: ${{ secrets.SWR_IAM_PASSWORD }}

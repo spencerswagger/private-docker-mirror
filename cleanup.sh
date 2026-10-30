@@ -26,12 +26,24 @@ if [[ "${WILDCARD:-0}" -gt 0 ]]; then echo "::error::image.txt 仍含通配行�
 if [[ "${KEEP_N:-0}" -lt 10 ]]; then echo "::error::白名单只有 ${KEEP_N} 个仓库（<10），清理不安全，终止" >&2; exit 1; fi
 if [[ "${REPO_N:-0}" -eq 0 ]]; then echo "::error::没读到 SWR 现有仓库（可能 token/接口异常），终止" >&2; exit 1; fi
 TO_DELETE=$(comm -23 <(echo "$REPOS") <(echo "$KEEP"))
-echo "现有仓库 $(echo "$REPOS" | grep -c . ) 个；白名单 $(echo "$KEEP" | grep -c .) 个；待清理 $(echo "$TO_DELETE" | grep -c .) 个（模式：${MODE}）"
+DEL_N=$(echo "$TO_DELETE" | grep -c . || true)
+MAX_DEL="${CLEANUP_MAX_DELETE:-100}"
+echo "现有仓库 $(echo "$REPOS" | grep -c . ) 个；白名单 $(echo "$KEEP" | grep -c .) 个；待清理 ${DEL_N} 个（模式：${MODE}）"
+if [[ "$MODE" == "delete" && "${DEL_N:-0}" -gt "$MAX_DEL" && "${CLEANUP_FORCE:-false}" != "true" ]]; then
+  echo "::error::待删 ${DEL_N} 个 > 阈值 ${MAX_DEL}，需显式 CLEANUP_FORCE=true 才继续（已中止）" >&2; exit 1
+fi
+DEL_FAIL=0
 for r in $TO_DELETE; do
   if [[ "$MODE" == "delete" ]]; then
-    code=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "https://swr.${REGION}.myhuaweicloud.com/v2/manage/namespaces/${NS}/repositories/${r}" -H "X-Auth-Token: ${TOKEN}")
-    echo "  deleted ${r} (HTTP ${code})"
+    code=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "https://swr.${REGION}.myhuaweicloud.com/v2/manage/namespaces/${NS}/repos/${r}" -H "X-Auth-Token: ${TOKEN}")
+    if [[ "$code" == "204" || "$code" == "200" ]]; then
+      echo "  deleted ${r} (HTTP ${code})"
+    else
+      echo "::error::删除 ${r} 失败（HTTP ${code}）"
+      DEL_FAIL=$((DEL_FAIL+1))
+    fi
   else
     echo "  [dry-run] 会删除 ${r}"
   fi
 done
+if [[ "${DEL_FAIL:-0}" -gt 0 ]]; then echo "::error::有 ${DEL_FAIL} 个删除失败" >&2; exit 1; fi
