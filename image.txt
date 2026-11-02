@@ -102,3 +102,4 @@ library/redis:alpine
 library/registry:2
 library/ubuntu:22.04
 library/ubuntu:24.04
+rustdesk/rustdesk-server:latest
