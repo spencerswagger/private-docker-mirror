@@ -1,0 +1,69 @@
+name: Sync Tar Image to SWR
+
+on:
+  workflow_dispatch:
+    inputs:
+      jobs:
+        description: 'JSON 数组：[{"url":"https://...tar","repo":"kingbasees","tag":"v8r6"}]'
+        required: true
+        type: string
+      make_public:
+        description: '推送后把仓库置为公开（匿名可拉）'
+        required: false
+        default: 'true'
+        type: string
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 skopeo
+        run: |
+          wget -q https://github.com/lework/skopeo-binary/releases/download/v1.24.1/skopeo-linux-amd64 -O /usr/local/bin/skopeo
+          chmod +x /usr/local/bin/skopeo
+          skopeo --version
+
+      - name: 登录 SWR
+        env:
+          SWR_USERNAME: ${{ secrets.SWR_USERNAME }}
+          SWR_PASSWORD: ${{ secrets.SWR_PASSWORD }}
+        run: echo "${SWR_PASSWORD}" | skopeo login --username "${SWR_USERNAME}" --password-stdin swr.cn-east-5.myhuaweicloud.com
+
+      - name: 下载并推送
+        env:
+          JOBS: ${{ github.event.inputs.jobs }}
+          NS: spencerswagger
+          REG: swr.cn-east-5.myhuaweicloud.com
+        run: |
+          set -euo pipefail
+          echo "$JOBS" > /tmp/jobs.json
+          python3 - <<'PY' > /tmp/list.txt
+          import json, os
+          for j in json.load(open('/tmp/jobs.json')):
+              print(j['url'], j['repo'], j['tag'], sep='\t')
+          PY
+          while IFS=$'\t' read -r url repo tag; do
+            [ -z "${url:-}" ] && continue
+            echo "::group:: $repo:$tag"
+            f="/tmp/${repo}_${tag}.tar"
+            echo "下载 $url"
+            curl -fL --retry 3 --retry-delay 5 -o "$f" "$url"
+            ls -lh "$f"
+            echo "推送 ${REG}/${NS}/${repo}:${tag}"
+            skopeo copy --dest-tls-verify=true "docker-archive:$f" "docker://${REG}/${NS}/${repo}:${tag}"
+            rm -f "$f"
+            echo "::endgroup::"
+          done < /tmp/list.txt
+
+      - name: 置为公开
+        if: ${{ github.event.inputs.make_public == 'true' }}
+        env:
+          SWR_AK: ${{ secrets.SWR_AK }}
+          SWR_SK: ${{ secrets.SWR_SK }}
+          SWR_NAMESPACE: spencerswagger
+        run: |
+          chmod +x ./make-public.sh ./hwc_sign.py 2>/dev/null || true
+          bash ./make-public.sh || echo "::warning::置公开失败，可手动在控制台点"
