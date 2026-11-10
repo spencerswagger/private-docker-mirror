@@ -53,13 +53,13 @@ jobs:
             curl -fL --retry 3 --retry-delay 5 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" -e "https://www.kingbase.com.cn/download.html" -o "$f" "$url"
             ls -lh "$f"
             echo "推送 ${REG}/${NS}/${repo}:${tag}"
-            skopeo copy --dest-tls-verify=true "docker-archive:$f" "docker://${REG}/${NS}/${repo}:${tag}"
+            skopeo copy --retry-times 3 --dest-tls-verify=true "docker-archive:$f" "docker://${REG}/${NS}/${repo}:${tag}"
             rm -f "$f"
             echo "::endgroup::"
           done < /tmp/list.txt
 
       - name: 置为公开
-        if: ${{ github.event.inputs.make_public == 'true' }}
+        if: always() && github.event.inputs.make_public == 'true'
         env:
           SWR_AK: ${{ secrets.SWR_AK }}
           SWR_SK: ${{ secrets.SWR_SK }}
