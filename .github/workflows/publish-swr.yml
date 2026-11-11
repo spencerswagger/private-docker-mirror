@@ -21,6 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Publish
         env:
           SWR_AK: ${{ secrets.SWR_AK }}
@@ -33,19 +34,20 @@ jobs:
             echo "::warning::缺少 SWR_AK/SWR_SK，跳过置公开"
             exit 0
           fi
-          python3 - <<'PY'
-import json, os, subprocess, tempfile, urllib.parse
-ns = os.environ["SWR_NAMESPACE"]; host = os.environ["SWR_API_HOST"]
-for repo in [r.strip() for r in os.environ["REPOS"].split(",") if r.strip()]:
-    url = f"https://{host}/v2/manage/namespaces/{ns}/repos/{urllib.parse.quote(repo)}"
-    body = json.dumps({"is_public": True}, separators=(",", ":"))
-    out = subprocess.run(["python3", "hwc_sign.py", "--lines", "PATCH", url, body],
-                         capture_output=True, text=True, check=True).stdout.split("\n")
-    auth, date = out[0], out[1]
-    r = subprocess.run(["curl","-s","-w","\n%{http_code}","-X","PATCH",url,
-                        "-H",f"Authorization: {auth}","-H",f"X-Sdk-Date: {date}",
-                        "-H","Content-Type: application/json","-d",body],
-                       capture_output=True, text=True)
-    code = r.stdout.strip().split("\n")[-1]
-    print(f"{repo}: HTTP {code}")
-PY
+          cat > /tmp/pub.py <<'PYEOF'
+          import json, os, subprocess, urllib.parse
+          ns = os.environ["SWR_NAMESPACE"]; host = os.environ["SWR_API_HOST"]
+          repos = [r.strip() for r in os.environ.get("REPOS", "").split(",") if r.strip()]
+          for repo in repos:
+              url = f"https://{host}/v2/manage/namespaces/{ns}/repos/{urllib.parse.quote(repo)}"
+              body = json.dumps({"is_public": True}, separators=(",", ":"))
+              out = subprocess.run(["python3", "hwc_sign.py", "--lines", "PATCH", url, body],
+                                   capture_output=True, text=True, check=True).stdout.split("\n")
+              auth, date = out[0], out[1]
+              r = subprocess.run(["curl", "-s", "-w", "\n%{http_code}", "-X", "PATCH", url,
+                                  "-H", f"Authorization: {auth}", "-H", f"X-Sdk-Date: {date}",
+                                  "-H", "Content-Type: application/json", "-d", body],
+                                 capture_output=True, text=True)
+              print(repo, "->", r.stdout.strip().split("\n")[-1])
+          PYEOF
+          python3 /tmp/pub.py
