@@ -1,0 +1,53 @@
+name: publish-swr
+
+# 把 SWR 里指定仓库置为公开（匿名可 pull）。默认只处理 kitsu 两个镜像。
+on:
+  workflow_dispatch:
+    inputs:
+      repos:
+        description: '仓库名，逗号分隔（不带命名空间）'
+        required: false
+        default: 'kitsu-zou,kitsu-web'
+
+permissions:
+  contents: read
+
+env:
+  SWR_REGION: cn-east-5
+  SWR_NAMESPACE: spencerswagger
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish
+        env:
+          SWR_AK: ${{ secrets.SWR_AK }}
+          SWR_SK: ${{ secrets.SWR_SK }}
+          REPOS: ${{ inputs.repos }}
+          SWR_API_HOST: swr-api.cn-east-5.myhuaweicloud.com
+        run: |
+          set -eu
+          if [ -z "${SWR_AK:-}" ] || [ -z "${SWR_SK:-}" ]; then
+            echo "::warning::缺少 SWR_AK/SWR_SK，跳过置公开"
+            exit 0
+          fi
+          cat > /tmp/pub.py <<'PYEOF'
+          import json, os, subprocess, urllib.parse
+          ns = os.environ["SWR_NAMESPACE"]; host = os.environ["SWR_API_HOST"]
+          repos = [r.strip() for r in os.environ.get("REPOS", "").split(",") if r.strip()]
+          for repo in repos:
+              url = f"https://{host}/v2/manage/namespaces/{ns}/repos/{urllib.parse.quote(repo)}"
+              body = json.dumps({"is_public": True}, separators=(",", ":"))
+              out = subprocess.run(["python3", "hwc_sign.py", "--lines", "PATCH", url, body],
+                                   capture_output=True, text=True, check=True).stdout.split("\n")
+              auth, date = out[0], out[1]
+              r = subprocess.run(["curl", "-s", "-w", "\n%{http_code}", "-X", "PATCH", url,
+                                  "-H", f"Authorization: {auth}", "-H", f"X-Sdk-Date: {date}",
+                                  "-H", "Content-Type: application/json", "-d", body],
+                                 capture_output=True, text=True)
+              print(repo, "->", r.stdout.strip().split("\n")[-1])
+          PYEOF
+          python3 /tmp/pub.py
